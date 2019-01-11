@@ -5,8 +5,17 @@
 # Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
+import json
+import threading
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+import xml.dom.minidom as xmldom
+import os
+import requests
+import serial
+
+from PyQt5.QtWidgets import QMessageBox, QFileDialog
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -183,26 +192,105 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.name_labe1.setText(_translate("MainWindow", "姓名"))
         self.btn_find_name.setText(_translate("MainWindow", "查  找"))
+        self.btn_find_name.clicked.connect(self.query_userinfo)
         self.mobile_label.setText(_translate("MainWindow", "手机号码"))
-        self.mobile_show.setText(_translate("MainWindow", "123"))
+        self.mobile_show.setText(_translate("MainWindow", ""))
         self.precard_label.setText(_translate("MainWindow", "原卡号"))
-        self.precard_show.setText(_translate("MainWindow", "123"))
+        self.precard_show.setText(_translate("MainWindow", ""))
         self.nowcard_label.setText(_translate("MainWindow", "现卡号"))
         self.nowcard_show.setText(_translate("MainWindow", ""))
         self.btn_radcard.setText(_translate("MainWindow", "读   卡"))
+        self.btn_radcard.clicked.connect(self.read_card)
         self.btn_dealcard.setText(_translate("MainWindow", "制  卡"))
-        self.pic_show.setText(_translate("MainWindow", "123"))
-        self.pic_label.setText(_translate("MainWindow", "123"))
+        self.btn_dealcard.clicked.connect(self.deal_card)
+        self.pic_show.setText(_translate("MainWindow", ""))
+        self.pic_label.setText(_translate("MainWindow", ""))
         self.title_label.setText(_translate("MainWindow", "金尚美食补卡模式"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab), _translate("MainWindow", "Tab 1"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab), _translate("MainWindow", "补卡模式"))
         self.btn2_dealcard.setText(_translate("MainWindow", "制  卡"))
         self.btn_selectpic.setText(_translate("MainWindow", "选择照片"))
-        self.pic_show2.setText(_translate("MainWindow", "123"))
+        self.pic_show2.setText(_translate("MainWindow", ""))
         self.btn2_readcard.setText(_translate("MainWindow", "读   卡"))
         self.title_label2.setText(_translate("MainWindow", "金尚美食发卡模式"))
-        self.nowcard_show2.setText(_translate("MainWindow", "123"))
+        self.nowcard_show2.setText(_translate("MainWindow", ""))
         self.nowcard_label2.setText(_translate("MainWindow", "现卡号"))
         self.name_label2.setText(_translate("MainWindow", "姓名"))
         self.mobile_label2.setText(_translate("MainWindow", "手机号码"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab2), _translate("MainWindow", "Tab 2"))
-
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab2), _translate("MainWindow", "发卡模式"))
+    def query_userinfo(self):
+        try:
+            xmlfilepath = os.path.abspath("config.xml")
+            domobj = xmldom.parse(xmlfilepath)
+            elementobj = domobj.documentElement
+            subElementObj = elementobj.getElementsByTagName("server")
+            addr = subElementObj[0].getAttribute("addr")
+        except:
+            QMessageBox.critical(self,"错误","配置文件错误")
+        post_data = {
+                'name':self.lineEdit_3.text()
+        }
+        r = requests.post(addr+'app01/queryuserinfo/',post_data)
+        return_data = json.loads(r.text)
+        if return_data.get('code') == '0':
+            self.mobile_show.setText(return_data.get('mobile'))
+            self.precard_show.setText(return_data.get('iccard'))
+            ba = QtCore.QByteArray.fromBase64(return_data.get('pic').encode('utf-8'))
+            pixmap = QtGui.QPixmap()
+            pixmap.loadFromData(ba)
+            self.pic_show.setPixmap(pixmap)
+            self.pic_show.setScaledContents(True)
+        elif return_data.get('code') == '5':
+            QMessageBox.critical(self, "错误", "没有查询到此用户！")
+        elif return_data.get('code') == '4':
+            QMessageBox.critical(self, "错误", "查询用户失败，请联系15195388207处理！")
+    def read_card(self):
+        self.nowcard_show.setText("请放置IC卡")
+        data = ''
+        data = data.encode('utf-8')
+        try:
+            xmlfilepath = os.path.abspath("config.xml")
+            domobj = xmldom.parse(xmlfilepath)
+            elementobj = domobj.documentElement
+            subElementObj = elementobj.getElementsByTagName("com")
+            port_addr = subElementObj[0].getAttribute("name")
+            port_rate = subElementObj[0].getAttribute("bitrate")
+        except:
+            QMessageBox.critical(self,"错误","配置文件错误")
+        x = serial.Serial(port_addr,int(port_rate))
+        def read_data():
+            while True:
+                data = x.readline().decode('utf-8').replace('\n','')
+                print(data)
+                self.nowcard_show.setText(data)
+        t1 = threading.Thread(target=read_data)
+        t1.start()
+    def deal_card(self):
+        post_data = {
+            'name':self.lineEdit_3.text(),
+            'mobile':self.mobile_show.text(),
+            'precard':self.precard_show.text(),
+            'nowcard':self.nowcard_show.text()
+        }
+        try:
+            xmlfilepath = os.path.abspath("config.xml")
+            domobj = xmldom.parse(xmlfilepath)
+            elementobj = domobj.documentElement
+            subElementObj = elementobj.getElementsByTagName("server")
+            addr = subElementObj[0].getAttribute("addr")
+        except:
+            QMessageBox.critical(self,"错误","配置文件错误")
+        r = requests.post(addr + 'app01/dealcard/', post_data)
+        return_data = json.loads(r.text)
+        if return_data.get('code') == '0':
+            QMessageBox.information(self,"成功","数据已提交，业务客户端重启后生效！")
+            self.lineEdit_3.clear()
+            self.mobile_show.clear()
+            self.precard_show.clear()
+            self.nowcard_show.clear()
+            self.pic_show.clear()
+        else:
+            QMessageBox.critical(self, "错误", "制卡失败")
+    def select_pic(self):
+        imgName, imgType = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
+        jpg = QtGui.QPixmap(imgName).scaled(self.label.width(), self.label.height())
+        self.label.setPixmap(jpg)
