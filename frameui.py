@@ -5,6 +5,8 @@
 # Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
+import base64
+import binascii
 import json
 import threading
 
@@ -18,7 +20,11 @@ from PyQt5.QtWidgets import QMessageBox, QFileDialog
 
 
 class Ui_MainWindow(object):
+    def __init__(self):
+        self.k = 0
+        self.pic_pathname = ''
     def setupUi(self, MainWindow):
+        self.pic_pathname = ''
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(684, 316)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -61,7 +67,7 @@ class Ui_MainWindow(object):
         self.precard_show = QtWidgets.QLabel(self.maintab)
         self.precard_show.setGeometry(QtCore.QRect(130, 140, 241, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(10)
         self.precard_show.setFont(font)
         self.precard_show.setObjectName("precard_show")
         self.nowcard_label = QtWidgets.QLabel(self.maintab)
@@ -73,7 +79,7 @@ class Ui_MainWindow(object):
         self.nowcard_show = QtWidgets.QLabel(self.maintab)
         self.nowcard_show.setGeometry(QtCore.QRect(130, 170, 241, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(10)
         self.nowcard_show.setFont(font)
         self.nowcard_show.setObjectName("nowcard_show")
         self.btn_radcard = QtWidgets.QPushButton(self.maintab)
@@ -85,7 +91,7 @@ class Ui_MainWindow(object):
         self.btn_dealcard = QtWidgets.QPushButton(self.maintab)
         self.btn_dealcard.setGeometry(QtCore.QRect(200, 210, 91, 31))
         font = QtGui.QFont()
-        font.setPointSize(11)
+        font.setPointSize(13)
         self.btn_dealcard.setFont(font)
         self.btn_dealcard.setObjectName("btn_dealcard")
         self.pic_show = QtWidgets.QLabel(self.maintab)
@@ -140,6 +146,12 @@ class Ui_MainWindow(object):
         font.setPointSize(11)
         self.btn2_readcard.setFont(font)
         self.btn2_readcard.setObjectName("btn2_readcard")
+        self.btn2_loginuser = QtWidgets.QPushButton(self.maintab2)
+        self.btn2_loginuser.setGeometry(QtCore.QRect(80, 220, 212, 31))
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        self.btn2_loginuser.setFont(font)
+        self.btn2_loginuser.setObjectName("btn2_loginuser")
         self.title_label2 = QtWidgets.QLabel(self.maintab2)
         self.title_label2.setGeometry(QtCore.QRect(220, 10, 201, 31))
         font = QtGui.QFont()
@@ -150,7 +162,7 @@ class Ui_MainWindow(object):
         self.nowcard_show2 = QtWidgets.QLabel(self.maintab2)
         self.nowcard_show2.setGeometry(QtCore.QRect(160, 150, 171, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(10)
         self.nowcard_show2.setFont(font)
         self.nowcard_show2.setObjectName("nowcard_show2")
         self.nowcard_label2 = QtWidgets.QLabel(self.maintab2)
@@ -182,7 +194,6 @@ class Ui_MainWindow(object):
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
-
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -208,15 +219,20 @@ class Ui_MainWindow(object):
         self.title_label.setText(_translate("MainWindow", "金尚美食补卡模式"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab), _translate("MainWindow", "补卡模式"))
         self.btn2_dealcard.setText(_translate("MainWindow", "制  卡"))
+        self.btn2_loginuser.setText(_translate("MainWindow", "注册新用户"))
+        self.btn2_dealcard.clicked.connect(self.deal_card2)
         self.btn_selectpic.setText(_translate("MainWindow", "选择照片"))
+        self.btn_selectpic.clicked.connect(self.select_pic)
         self.pic_show2.setText(_translate("MainWindow", ""))
         self.btn2_readcard.setText(_translate("MainWindow", "读   卡"))
+        self.btn2_readcard.clicked.connect(self.read_card2)
         self.title_label2.setText(_translate("MainWindow", "金尚美食发卡模式"))
         self.nowcard_show2.setText(_translate("MainWindow", ""))
         self.nowcard_label2.setText(_translate("MainWindow", "现卡号"))
         self.name_label2.setText(_translate("MainWindow", "姓名"))
         self.mobile_label2.setText(_translate("MainWindow", "手机号码"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab2), _translate("MainWindow", "发卡模式"))
+        self.k = 0
     def query_userinfo(self):
         try:
             xmlfilepath = os.path.abspath("config.xml")
@@ -244,9 +260,8 @@ class Ui_MainWindow(object):
         elif return_data.get('code') == '4':
             QMessageBox.critical(self, "错误", "查询用户失败，请联系15195388207处理！")
     def read_card(self):
+        self.k = 0
         self.nowcard_show.setText("请放置IC卡")
-        data = ''
-        data = data.encode('utf-8')
         try:
             xmlfilepath = os.path.abspath("config.xml")
             domobj = xmldom.parse(xmlfilepath)
@@ -256,12 +271,24 @@ class Ui_MainWindow(object):
             port_rate = subElementObj[0].getAttribute("bitrate")
         except:
             QMessageBox.critical(self,"错误","配置文件错误")
-        x = serial.Serial(port_addr,int(port_rate))
+            return
+        try:
+            self.x = serial.Serial(port_addr,int(port_rate))
+        except:
+            QMessageBox.critical(self, "错误", "串口打开失败！")
+            return
         def read_data():
             while True:
-                data = x.readline().decode('utf-8').replace('\n','')
-                print(data)
-                self.nowcard_show.setText(data)
+                if self.k == 0:
+                    #data =  self.x.readline().decode('utf-8').replace('\n','')
+                    data = self.x.read(16)
+                    print(data)
+                    hex_data = binascii.b2a_hex(data)
+                    print(str(hex_data))
+                    self.nowcard_show.setText(str(hex_data)[2:-1])
+                    self.k == 1
+                    self.x.close()
+                    break
         t1 = threading.Thread(target=read_data)
         t1.start()
     def deal_card(self):
@@ -291,6 +318,69 @@ class Ui_MainWindow(object):
         else:
             QMessageBox.critical(self, "错误", "制卡失败")
     def select_pic(self):
-        imgName, imgType = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
-        jpg = QtGui.QPixmap(imgName).scaled(self.label.width(), self.label.height())
-        self.label.setPixmap(jpg)
+        self.pic_pathname, imgType = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
+        jpg = QtGui.QPixmap(self.pic_pathname).scaled(self.pic_show2.width(), self.pic_show2.height())
+        self.pic_show2.setPixmap(jpg)
+    def read_card2(self):
+        self.j = 0
+        self.nowcard_show.setText("请放置IC卡")
+        try:
+            xmlfilepath = os.path.abspath("config.xml")
+            domobj = xmldom.parse(xmlfilepath)
+            elementobj = domobj.documentElement
+            subElementObj = elementobj.getElementsByTagName("com")
+            port_addr = subElementObj[0].getAttribute("name")
+            port_rate = subElementObj[0].getAttribute("bitrate")
+        except:
+            QMessageBox.critical(self, "错误", "配置文件错误")
+        self.x = serial.Serial(port_addr, int(port_rate))
+
+        def read_data():
+            while True:
+                if self.j == 0:
+                    data = self.x.readline().decode('utf-8').replace('\n', '')
+                    self.nowcard_show2.setText(data)
+                    self.j == 1
+                    self.x.close()
+                    break
+
+        t1 = threading.Thread(target=read_data)
+        t1.start()
+    def deal_card2(self):
+        s = ''
+        name = self.lineEdit.text()
+        mobile = self.lineEdit_2.text()
+        card_num = self.nowcard_show2.text()
+        if name == '':
+            QMessageBox.critical(self, "错误", "用户名不能为空！")
+            return None
+        elif mobile == '':
+            QMessageBox.critical(self, "错误", "手机号不能为空！")
+            return None
+        elif card_num == '':
+            QMessageBox.critical(self, "错误", "卡号不能为空！")
+            return None
+        if self.pic_pathname == '':
+            QMessageBox.critical(self, "错误", "请选择照片！")
+        else:
+            with open(self.pic_pathname, 'rb') as f:
+                base64_data = base64.b64encode(f.read())
+                s = base64_data.decode()
+            post_data = {
+                'name':name,
+                'mobile':mobile,
+                'nowcard':card_num,
+                'pic_num':s
+            }
+            try:
+                xmlfilepath = os.path.abspath("config.xml")
+                domobj = xmldom.parse(xmlfilepath)
+                elementobj = domobj.documentElement
+                subElementObj = elementobj.getElementsByTagName("server")
+                addr = subElementObj[0].getAttribute("addr")
+            except:
+                QMessageBox.critical(self,"错误","配置文件错误")
+            r = requests.post(addr+"app01/adduser/",post_data)
+            return_data = json.loads(r.text)
+            if return_data.get('code') == '0':
+                QMessageBox.information(self, "成功", "数据已提交，业务客户端重启后生效！")
