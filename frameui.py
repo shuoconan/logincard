@@ -9,13 +9,14 @@ import base64
 import binascii
 import json
 import threading
+import time
 
+from Crypto.Cipher import AES
 from PyQt5 import QtCore, QtGui, QtWidgets
 import xml.dom.minidom as xmldom
 import os
 import requests
 import serial
-
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
 
 
@@ -172,7 +173,7 @@ class Ui_MainWindow(object):
         self.nowcard_label2.setFont(font)
         self.nowcard_label2.setObjectName("nowcard_label2")
         self.name_label2 = QtWidgets.QLabel(self.maintab2)
-        self.name_label2.setGeometry(QtCore.QRect(110, 80, 31, 21))
+        self.name_label2.setGeometry(QtCore.QRect(110, 50, 31, 21))
         font = QtGui.QFont()
         font.setPointSize(13)
         self.name_label2.setFont(font)
@@ -184,8 +185,15 @@ class Ui_MainWindow(object):
         self.mobile_label2.setFont(font)
         self.mobile_label2.setObjectName("mobile_label2")
         self.lineEdit = QtWidgets.QLineEdit(self.maintab2)
-        self.lineEdit.setGeometry(QtCore.QRect(160, 80, 121, 20))
+        self.lineEdit.setGeometry(QtCore.QRect(160, 50, 121, 20))
         self.lineEdit.setObjectName("lineEdit")
+        self.tagcombox = QtWidgets.QComboBox(self.maintab2)
+        self.tagcombox.setGeometry(QtCore.QRect(160, 85, 121, 20))
+        self.taglabel = QtWidgets.QLabel(self.maintab2)
+        self.taglabel.setGeometry(QtCore.QRect(80, 85, 121, 20))
+        font = QtGui.QFont()
+        font.setPointSize(13)
+        self.taglabel.setFont(font)
         self.lineEdit_2 = QtWidgets.QLineEdit(self.maintab2)
         self.lineEdit_2.setGeometry(QtCore.QRect(160, 120, 121, 20))
         self.lineEdit_2.setObjectName("lineEdit_2")
@@ -232,6 +240,10 @@ class Ui_MainWindow(object):
         self.name_label2.setText(_translate("MainWindow", "姓名"))
         self.mobile_label2.setText(_translate("MainWindow", "手机号码"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab2), _translate("MainWindow", "发卡模式"))
+        self.taglabel.setText(_translate("MainWindow","所属部门"))
+        self.btn2_loginuser.clicked.connect(self.login_user)
+        t2 = threading.Thread(target=self.get_grouptags)
+        t2.start()
         self.k = 0
     def query_userinfo(self):
         try:
@@ -315,15 +327,17 @@ class Ui_MainWindow(object):
             self.precard_show.clear()
             self.nowcard_show.clear()
             self.pic_show.clear()
-        else:
-            QMessageBox.critical(self, "错误", "制卡失败")
+            return
+        elif return_data.get('code') == '7':
+            QMessageBox.critical(self, "错误", "卡片已被使用！")
+            return
     def select_pic(self):
         self.pic_pathname, imgType = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
         jpg = QtGui.QPixmap(self.pic_pathname).scaled(self.pic_show2.width(), self.pic_show2.height())
         self.pic_show2.setPixmap(jpg)
     def read_card2(self):
         self.j = 0
-        self.nowcard_show.setText("请放置IC卡")
+        self.nowcard_show2.setText("请放置IC卡")
         try:
             xmlfilepath = os.path.abspath("config.xml")
             domobj = xmldom.parse(xmlfilepath)
@@ -334,13 +348,14 @@ class Ui_MainWindow(object):
         except:
             QMessageBox.critical(self, "错误", "配置文件错误")
         self.x = serial.Serial(port_addr, int(port_rate))
-
         def read_data():
             while True:
                 if self.j == 0:
-                    data = self.x.readline().decode('utf-8').replace('\n', '')
-                    self.nowcard_show2.setText(data)
-                    self.j == 1
+                    data = self.x.read(16)
+                    print(data)
+                    hex_data = binascii.b2a_hex(data)
+                    self.nowcard_show2.setText(str(hex_data)[2:-1])
+                    self.k == 1
                     self.x.close()
                     break
 
@@ -363,24 +378,144 @@ class Ui_MainWindow(object):
         if self.pic_pathname == '':
             QMessageBox.critical(self, "错误", "请选择照片！")
         else:
-            with open(self.pic_pathname, 'rb') as f:
-                base64_data = base64.b64encode(f.read())
-                s = base64_data.decode()
-            post_data = {
-                'name':name,
-                'mobile':mobile,
-                'nowcard':card_num,
-                'pic_num':s
-            }
             try:
                 xmlfilepath = os.path.abspath("config.xml")
                 domobj = xmldom.parse(xmlfilepath)
                 elementobj = domobj.documentElement
                 subElementObj = elementobj.getElementsByTagName("server")
                 addr = subElementObj[0].getAttribute("addr")
+                addr2 = subElementObj[0].getAttribute("addr2")
             except:
                 QMessageBox.critical(self,"错误","配置文件错误")
-            r = requests.post(addr+"app01/adduser/",post_data)
-            return_data = json.loads(r.text)
-            if return_data.get('code') == '0':
-                QMessageBox.information(self, "成功", "数据已提交，业务客户端重启后生效！")
+            post_data = {
+                "time":time.strftime("%Y-%m-%d %H:%M:%S"),
+                "mobile":self.lineEdit_2.text()
+            }
+            post_data_encrypto = json.dumps(post_data)
+            bs = 16
+            PADDING = lambda s: s + (bs - len(s) % bs) * chr(bs - len(s) % bs)
+            model = AES.MODE_ECB
+            str1 = time.strftime("%Y%m%d")
+            str2 = str1 + str1[::-1]
+            obj = AES.new(str2, model)
+            enctypto_text = obj.encrypt(PADDING(post_data_encrypto.replace("'", "\"")).encode('utf-8'))
+            enctypto_final = base64.b64encode(enctypto_text)
+            post_data_send = {
+                "contents": str(enctypto_final)[2:-1]
+            }
+            print(addr)
+            try:
+                r = requests.post(addr2 + "api/user/show", post_data_send)
+                print(r.text)
+                r_json = json.loads(r.text)
+                if r_json.get('code') == 0:
+                    with open(self.pic_pathname, 'rb') as f:
+                        base64_data = base64.b64encode(f.read())
+                        s = base64_data.decode()
+                    post_data = {
+                        'name':name,
+                        'mobile':mobile,
+                        'nowcard':card_num,
+                        'pic_num':s
+                    }
+
+                    r2 = requests.post(addr+"app01/adduser/",post_data)
+                    return_data = json.loads(r2.text)
+                    if return_data.get('code') == '0':
+                        QMessageBox.information(self, "成功", "数据已提交，业务客户端重启后生效！")
+                        return
+                    elif return_data.get('code') == '7':
+                        QMessageBox.critical(self, "错误", "该IC卡已被使用！")
+                        return
+                else:
+                    QMessageBox.critical(self, "错误", "此用户在线上不存在")
+                    return
+            except:
+                QMessageBox.critical(self, "错误", "制卡失败")
+                return
+    def get_grouptags(self):
+        self.statusbar.showMessage("正在获取分组信息。。。。。。")
+        try:
+            xmlfilepath = os.path.abspath("config.xml")
+            domobj = xmldom.parse(xmlfilepath)
+            elementobj = domobj.documentElement
+            subElementObj = elementobj.getElementsByTagName("server")
+            server_addr = subElementObj[0].getAttribute("addr2")
+        except:
+            QMessageBox.critical(self,"错误","配置文件错误")
+            return
+        bs = 16
+        PADDING = lambda s: s + (bs - len(s) % bs) * chr(bs - len(s) % bs)
+        model = AES.MODE_ECB
+        str1 = time.strftime("%Y%m%d")
+        str2 = str1+str1[::-1]
+        post_data = {
+            "time":time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        obj = AES.new(str2,model)
+        enctypto_text = obj.encrypt(PADDING(str(post_data).replace("'","\"")).encode('utf-8'))
+        enctypto_final = base64.b64encode(enctypto_text)
+        post_data_send = {
+            "contents":str(enctypto_final)[2:-1]
+        }
+        try:
+            r = requests.post(server_addr+"api/tags/group",post_data_send)
+            r_json = json.loads(r.text)
+            if r_json.get('code') == 0:
+                r_json_data = r_json.get('data')
+                print(r_json_data)
+                self.tagcombox.addItem("请选择部门")
+                dict = []
+                for key,value in r_json_data.items():
+                    dict.append(str(int(key)-1)+'-'+value)
+                dict.reverse()
+                self.tagcombox.addItems(dict)
+                self.statusbar.showMessage("分组信息获取成功")
+        except:
+            QMessageBox.critical(self, "错误", "无法获取用户分组,请检查网络后重启程序！")
+            return
+    def login_user(self):
+        name_label = self.lineEdit.text()
+        mobile_label = self.lineEdit_2.text()
+        if name_label == '':
+            QMessageBox.critical(self, "错误", "用户名不能为空！")
+            return
+        if mobile_label == '':
+            QMessageBox.critical(self, "错误", "手机号不能为空！")
+            return
+        if self.tagcombox.currentText() == "请选择部门":
+            QMessageBox.critical(self, "错误", "请选择部门！")
+            return
+        tag_index = self.tagcombox.currentText().split('-')
+        try:
+            xmlfilepath = os.path.abspath("config.xml")
+            domobj = xmldom.parse(xmlfilepath)
+            elementobj = domobj.documentElement
+            subElementObj = elementobj.getElementsByTagName("server")
+            server_addr = subElementObj[0].getAttribute("addr2")
+        except:
+            QMessageBox.critical(self,"错误","配置文件错误")
+            return
+        post_data = {
+            "name": name_label,
+            "mobile": mobile_label,
+            "tag": str(int(tag_index[0]) + 1)
+        }
+        post_data_encrypto = json.dumps(post_data)
+        bs = 16
+        PADDING = lambda s: s + (bs - len(s) % bs) * chr(bs - len(s) % bs)
+        model = AES.MODE_ECB
+        str1 = time.strftime("%Y%m%d")
+        str2 = str1+str1[::-1]
+        obj = AES.new(str2,model)
+        enctypto_text = obj.encrypt(PADDING(post_data_encrypto.replace("'","\"")).encode('utf-8'))
+        enctypto_final = base64.b64encode(enctypto_text)
+        post_data_send = {
+            "contents":str(enctypto_final)[2:-1]
+        }
+        r = requests.post(server_addr+"api/user/register",post_data_send)
+        r_json = json.loads(r.text)
+        if r_json.get('code') == 0:
+            QMessageBox.information(self, "成功", "用户"+name_label+"注册成功！")
+            self.lineEdit.setReadOnly(True)
+            self.lineEdit_2.setReadOnly(True)
