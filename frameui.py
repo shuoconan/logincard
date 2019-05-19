@@ -7,11 +7,13 @@
 # WARNING! All changes made in this file will be lost!
 import base64
 import binascii
+import datetime
 import json
 import sys
 import threading
 import time
 
+import pymysql
 from Crypto.Cipher import AES
 from PyQt5 import QtCore, QtGui, QtWidgets
 import xml.dom.minidom as xmldom
@@ -22,8 +24,55 @@ import serial
 import serial.tools.list_ports
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QMainWindow
 
-from login_frame import Ui_Dialog
 
+class Ui_Dialog(object):
+    def setupUi(self, Dialog):
+        Dialog.setObjectName("Dialog")
+        Dialog.resize(396, 172)
+        self.label = QtWidgets.QLabel(Dialog)
+        self.label.setGeometry(QtCore.QRect(110, 20, 161, 20))
+        font = QtGui.QFont()
+        font.setFamily("黑体")
+        font.setPointSize(14)
+        self.label.setFont(font)
+        self.label.setObjectName("label")
+        self.label_2 = QtWidgets.QLabel(Dialog)
+        self.label_2.setGeometry(QtCore.QRect(90, 70, 61, 20))
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.label_2.setFont(font)
+        self.label_2.setObjectName("label_2")
+        self.lineEdit = QtWidgets.QLineEdit(Dialog)
+        self.lineEdit.setGeometry(QtCore.QRect(150, 70, 113, 20))
+        self.lineEdit.setObjectName("lineEdit")
+        self.label_3 = QtWidgets.QLabel(Dialog)
+        self.label_3.setGeometry(QtCore.QRect(90, 100, 51, 20))
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.label_3.setFont(font)
+        self.label_3.setObjectName("label_3")
+        self.lineEdit_2 = QtWidgets.QLineEdit(Dialog)
+        self.lineEdit_2.setGeometry(QtCore.QRect(150, 100, 113, 20))
+        self.lineEdit_2.setText("")
+        self.lineEdit_2.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.lineEdit_2.setObjectName("lineEdit_2")
+        self.pushButton = QtWidgets.QPushButton(Dialog)
+        self.pushButton.setGeometry(QtCore.QRect(140, 130, 75, 23))
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.pushButton.setFont(font)
+        self.pushButton.setObjectName("pushButton")
+
+        self.retranslateUi(Dialog)
+        QtCore.QMetaObject.connectSlotsByName(Dialog)
+
+    def retranslateUi(self, Dialog):
+        _translate = QtCore.QCoreApplication.translate
+        Dialog.setWindowTitle(_translate("Dialog", "金尚美食卡片管理"))
+        self.label.setText(_translate("Dialog", "金尚美食卡片管理"))
+        self.label_2.setText(_translate("Dialog", "用户名"))
+        self.label_3.setText(_translate("Dialog", "密  码"))
+        self.pushButton.setText(_translate("Dialog", "登录"))
 
 class Ui_MainWindow(object):
     def __init__(self):
@@ -43,74 +92,74 @@ class Ui_MainWindow(object):
         self.name_labe1 = QtWidgets.QLabel(self.maintab)
         self.name_labe1.setGeometry(QtCore.QRect(80, 80, 31, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.name_labe1.setFont(font)
         self.name_labe1.setObjectName("name_labe1")
         self.btn_find_name = QtWidgets.QPushButton(self.maintab)
         self.btn_find_name.setGeometry(QtCore.QRect(280, 70, 91, 31))
         font = QtGui.QFont()
-        font.setPointSize(11)
+        font.setPointSize(9)
         self.btn_find_name.setFont(font)
         self.btn_find_name.setObjectName("btn_find_name")
         self.mobile_label = QtWidgets.QLabel(self.maintab)
         self.mobile_label.setGeometry(QtCore.QRect(50, 110, 71, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.mobile_label.setFont(font)
         self.mobile_label.setObjectName("mobile_label")
         self.mobile_show = QtWidgets.QLabel(self.maintab)
         self.mobile_show.setGeometry(QtCore.QRect(130, 110, 241, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.mobile_show.setFont(font)
         self.mobile_show.setObjectName("mobile_show")
         self.precard_label = QtWidgets.QLabel(self.maintab)
         self.precard_label.setGeometry(QtCore.QRect(70, 140, 51, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.precard_label.setFont(font)
         self.precard_label.setObjectName("precard_label")
         self.precard_show = QtWidgets.QLabel(self.maintab)
         self.precard_show.setGeometry(QtCore.QRect(130, 140, 241, 21))
         font = QtGui.QFont()
-        font.setPointSize(10)
+        font.setPointSize(9)
         self.precard_show.setFont(font)
         self.precard_show.setObjectName("precard_show")
         self.nowcard_label = QtWidgets.QLabel(self.maintab)
         self.nowcard_label.setGeometry(QtCore.QRect(70, 170, 51, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.nowcard_label.setFont(font)
         self.nowcard_label.setObjectName("nowcard_label")
         self.nowcard_show = QtWidgets.QLabel(self.maintab)
         self.nowcard_show.setGeometry(QtCore.QRect(130, 170, 241, 21))
         font = QtGui.QFont()
-        font.setPointSize(10)
+        font.setPointSize(9)
         self.nowcard_show.setFont(font)
         self.nowcard_show.setObjectName("nowcard_show")
         self.btn_radcard = QtWidgets.QPushButton(self.maintab)
         self.btn_radcard.setGeometry(QtCore.QRect(70, 210, 91, 31))
         font = QtGui.QFont()
-        font.setPointSize(11)
+        font.setPointSize(9)
         self.btn_radcard.setFont(font)
         self.btn_radcard.setObjectName("btn_radcard")
         self.btn_dealcard = QtWidgets.QPushButton(self.maintab)
         self.btn_dealcard.setGeometry(QtCore.QRect(200, 210, 91, 31))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.btn_dealcard.setFont(font)
         self.btn_dealcard.setObjectName("btn_dealcard")
         self.pic_show = QtWidgets.QLabel(self.maintab)
         self.pic_show.setGeometry(QtCore.QRect(430, 50, 151, 171))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.pic_show.setFont(font)
         self.pic_show.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.pic_show.setObjectName("pic_show")
         self.pic_label = QtWidgets.QLabel(self.maintab)
         self.pic_label.setGeometry(QtCore.QRect(430, 250, 151, 21))
         font = QtGui.QFont()
-        font.setPointSize(13)
+        font.setPointSize(9)
         self.pic_label.setFont(font)
         self.pic_label.setObjectName("pic_label")
         self.title_label = QtWidgets.QLabel(self.maintab)
@@ -231,10 +280,10 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.name_labe1.setText(_translate("MainWindow", "姓名"))
+        self.name_labe1.setText(_translate("MainWindow", "编号"))
         self.btn_find_name.setText(_translate("MainWindow", "查  找"))
         self.btn_find_name.clicked.connect(self.query_userinfo)
-        self.mobile_label.setText(_translate("MainWindow", "手机号码"))
+        self.mobile_label.setText(_translate("MainWindow", "姓   名"))
         self.mobile_show.setText(_translate("MainWindow", ""))
         self.precard_label.setText(_translate("MainWindow", "原卡号"))
         self.precard_show.setText(_translate("MainWindow", ""))
@@ -280,29 +329,44 @@ class Ui_MainWindow(object):
             elementobj = domobj.documentElement
             subElementObj = elementobj.getElementsByTagName("server")
             addr = subElementObj[0].getAttribute("addr")
-        except:
+            dbElementObj = elementobj.getElementsByTagName("db")
+            db_name = dbElementObj[0].getAttribute("name")
+            db_user = dbElementObj[0].getAttribute("user")
+            db_pwd = dbElementObj[0].getAttribute("pwd")
+        except Exception as e:
+            log = datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S') + "[配置文件配置错误，错误原因为：" + e.__str__() + "]\n"
+            with open('logs.log', 'at', encoding='gbk') as f:
+                f.write(log)
             QMessageBox.critical(self,"错误","配置文件错误")
             return
-        post_data = {
-                'name':self.lineEdit_3.text()
-        }
+        db = pymysql.connect(addr, db_user, db_pwd, db_name)
+        cursor = db.cursor()
+        query_sql = "SELECT * FROM charge WHERE phonenum = %s"%self.lineEdit_3.text()
         try:
-            r = requests.post(addr+'app01/queryuserinfo/',post_data)
-            return_data = json.loads(r.text)
-            if return_data.get('code') == '0':
-                self.mobile_show.setText(return_data.get('mobile'))
-                self.precard_show.setText(return_data.get('iccard'))
-                ba = QtCore.QByteArray.fromBase64(return_data.get('pic').encode('utf-8'))
+            cursor.execute(query_sql)
+            results = cursor.fetchall()
+            print(results)
+            if not results:
+                log = datetime.datetime.now().strftime(
+                    '%Y-%m-%d %H:%M:%S') + "[查找编号为：" + self.lineEdit_3.text() + "的用户，经查找，查无此人]\n"
+                with open('logs.log', 'at', encoding='gbk') as f:
+                    f.write(log)
+                QMessageBox.critical(self, "错误","用户不存在！")
+                return
+            for rows in results:
+                self.mobile_show.setText(rows[1])
+                self.precard_show.setText(rows[2])
+                # ba = QtCore.QByteArray.fromBase64(rows[5].encode('utf8'))
                 pixmap = QtGui.QPixmap()
-                pixmap.loadFromData(ba)
+                pixmap.loadFromData(rows[5])
                 self.pic_show.setPixmap(pixmap)
                 self.pic_show.setScaledContents(True)
-            elif return_data.get('code') == '5':
-                QMessageBox.critical(self, "错误", "没有查询到此用户！")
-            elif return_data.get('code') == '4':
-                QMessageBox.critical(self, "错误", "查询用户失败，请联系15195388207处理！")
-        except:
-            QMessageBox.critical(self, "错误", "网络错误！")
+        except Exception as e:
+            print(e.__str__())
+            QMessageBox.critical(self, "错误", e.__str__())
+        cursor.close()
+        db.close()
     def read_card(self):
         self.k = 0
         self.nowcard_show.setText("请放置IC卡")
@@ -313,13 +377,21 @@ class Ui_MainWindow(object):
             subElementObj = elementobj.getElementsByTagName("com")
             port_addr = subElementObj[0].getAttribute("name")
             port_rate = subElementObj[0].getAttribute("bitrate")
-        except:
+        except Exception as e:
+            log = datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S') + "[配置文件配置错误，错误原因为：" +e.__str__()+ "]\n"
+            with open('logs.log', 'at', encoding='gbk') as f:
+                f.write(log)
             QMessageBox.critical(self,"错误","配置文件错误")
             return
         try:
             self.x = serial.Serial(port_addr,int(port_rate))
-        except:
-            QMessageBox.critical(self, "错误", "串口打开失败！")
+        except Exception as e:
+            log = datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S') + "[串口打开失败，失败原因为：" + e.__str__() + "]\n"
+            with open('logs.log', 'at', encoding='gbk') as f:
+                f.write(log)
+            QMessageBox.critical(self, "错误", "串口打开失败！"+e.__str__())
             return
         def read_data():
             while True:
@@ -329,7 +401,7 @@ class Ui_MainWindow(object):
                     print(data)
                     hex_data = binascii.b2a_hex(data)
                     print(str(hex_data))
-                    self.nowcard_show.setText(str(hex_data)[2:-1])
+                    self.nowcard_show.setText(str(hex_data)[2:-1].upper())
                     self.k == 1
                     self.x.close()
                     break
@@ -348,22 +420,48 @@ class Ui_MainWindow(object):
             elementobj = domobj.documentElement
             subElementObj = elementobj.getElementsByTagName("server")
             addr = subElementObj[0].getAttribute("addr")
+            dbElementObj = elementobj.getElementsByTagName("db")
+            db_name = dbElementObj[0].getAttribute("name")
+            db_user = dbElementObj[0].getAttribute("user")
+            db_pwd = dbElementObj[0].getAttribute("pwd")
         except:
             QMessageBox.critical(self,"错误","配置文件错误")
             return
-        r = requests.post(addr + 'app01/dealcard/', post_data)
-        return_data = json.loads(r.text)
-        if return_data.get('code') == '0':
-            QMessageBox.information(self,"成功","数据已提交，业务客户端重启后生效！")
-            self.lineEdit_3.clear()
-            self.mobile_show.clear()
-            self.precard_show.clear()
-            self.nowcard_show.clear()
-            self.pic_show.clear()
-            return
-        elif return_data.get('code') == '7':
-            QMessageBox.critical(self, "错误", "卡片已被使用！")
-            return
+        db = pymysql.connect(addr, db_user, db_pwd, db_name)
+        cursor = db.cursor()
+        query_sql = "SELECT * FROM charge WHERE icnum = '%s'"%self.nowcard_show.text()
+        update_sql = "UPDATE charge SET icnum= %s WHERE phonenum = %s"
+        try:
+            cursor.execute(query_sql)
+            results = cursor.fetchone()
+            if not results:
+                cursor.close()
+                cursor = db.cursor()
+                cursor.execute(update_sql,(self.nowcard_show.text(),self.lineEdit_3.text()))
+                db.commit()
+                QMessageBox.information(self,"成功","补卡成功！")
+                log = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+"["+self.lineEdit_3.text()+self.mobile_show.text()+"成功补卡,原卡号:"+self.precard_show.text()+"，现卡号："+self.nowcard_show.text()+"]\n"
+                with open('logs.log', 'at', encoding='gbk') as f:
+                    f.write(log)
+                self.lineEdit_3.clear()
+                self.mobile_show.clear()
+                self.precard_show.clear()
+                self.nowcard_show.clear()
+                self.pic_show.clear()
+            else:
+                log = datetime.datetime.now().strftime(
+                    '%Y-%m-%d %H:%M:%S') + "[" + self.lineEdit_3.text() + self.mobile_show.text() + "补卡失败,原卡号:" + self.precard_show.text() + "，预补卡号为：" + self.nowcard_show.text() + "失败原因为：该卡已被使用，使用人为：" + results[1] + "]\n"
+                with open('logs.log', 'at', encoding='gbk') as f:
+                    f.write(log)
+                QMessageBox.information(self, "失败", "该卡已被使用！使用人为：" + results[1])
+        except Exception as e:
+            db.rollback()
+            log = datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S') + "[" + self.lineEdit_3.text() + self.mobile_show.text() + "补卡失败,原卡号:" + self.precard_show.text() + "，预补卡号为：" + self.nowcard_show.text() + "失败原因为："+e.__str__()+"]\n"
+            with open('logs.log', 'at', encoding='gbk') as f:
+                f.write(log)
+            QMessageBox.information(self, "失败", "制卡失败，错误为："+e.__str__())
+
     def select_pic(self):
         self.pic_pathname, imgType = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
         jpg = QtGui.QPixmap(self.pic_pathname).scaled(self.pic_show2.width(), self.pic_show2.height())
@@ -579,16 +677,29 @@ class Ui_MainWindow(object):
         except:
             QMessageBox.critical(self,"错误","配置文件错误")
             return
-class main_frame(QMainWindow,Ui_MainWindow):
+class main_frame(QMainWindow, Ui_MainWindow):
     def __init__(self):
-        super(main_frame,self).__init__()
+        super(main_frame, self).__init__()
         self.setupUi(self)
 class login_frame(QMainWindow,Ui_Dialog):
     def __init__(self):
         super(login_frame,self).__init__()
         self.setupUi(self)
+
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
-    widget =main_frame()
+    widget = login_frame()
+    widget2 = main_frame()
+    def deal_login(self):
+        user = widget.lineEdit.text()
+        pwd = widget.lineEdit_2.text()
+        print(user, pwd)
+        if user == '100100' and pwd == '776677':
+            widget.lineEdit.clear()
+            widget.lineEdit_2.clear()
+            widget.hide()
+            widget2.show()
+    widget.pushButton.clicked.connect(deal_login)
     widget.show()
     sys.exit(app.exec())
+

@@ -1,5 +1,6 @@
 <config>
-    <server addr="http://118.25.40.2/" addr2="http://www.jinshangfoods.com/">
+    <server addr="localhost" addr2="http://www.jinshangfoods.com/">
     </server>
-    <com bitrate="9600" name="" />
+    <com bitrate="9600" name="COM3" />
+    <db name="canteen" pwd="bonjava" user="root" />
 </config>
