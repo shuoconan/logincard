@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="utf-8" ?>
 <config>
-    <server addr = "http://127.0.0.1:8000/" addr2 = "http://text.jinshangfoods.com/"></server>
-    <com name = "COM5" bitrate = '9600'></com>
+    <server addr="http://118.25.40.2/" addr2="http://www.jinshangfoods.com/">
+    </server>
+    <com bitrate="9600" name="" />
 </config>

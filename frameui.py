@@ -8,16 +8,21 @@
 import base64
 import binascii
 import json
+import sys
 import threading
 import time
 
 from Crypto.Cipher import AES
 from PyQt5 import QtCore, QtGui, QtWidgets
 import xml.dom.minidom as xmldom
+import xml.etree.ElementTree as et
 import os
 import requests
 import serial
-from PyQt5.QtWidgets import QMessageBox, QFileDialog
+import serial.tools.list_ports
+from PyQt5.QtWidgets import QMessageBox, QFileDialog, QMainWindow
+
+from login_frame import Ui_Dialog
 
 
 class Ui_MainWindow(object):
@@ -199,6 +204,23 @@ class Ui_MainWindow(object):
         self.lineEdit_2.setObjectName("lineEdit_2")
         self.tabWidget.addTab(self.maintab2, "")
         MainWindow.setCentralWidget(self.centralwidget)
+        self.maintab3 = QtWidgets.QWidget()
+        self.maintab3.setObjectName("maintab3")
+        self.tabWidget.addTab(self.maintab3, "")
+        self.set_port_name = QtWidgets.QLabel(self.maintab3)
+        self.set_port_name.setGeometry(QtCore.QRect(80, 80, 61, 21))
+        self.set_port_show = QtWidgets.QComboBox(self.maintab3)
+        self.set_port_show.setGeometry(QtCore.QRect(140, 80, 200, 20))
+        self.net_addr1 = QtWidgets.QLabel(self.maintab3)
+        self.net_addr1.setGeometry(QtCore.QRect(80,110,61,21))
+        self.net_addr1_show = QtWidgets.QLineEdit(self.maintab3)
+        self.net_addr1_show.setGeometry(QtCore.QRect(140,110,200,20))
+        self.net_addr2 = QtWidgets.QLabel(self.maintab3)
+        self.net_addr2.setGeometry(QtCore.QRect(80, 140, 61, 21))
+        self.net_addr2_show = QtWidgets.QLineEdit(self.maintab3)
+        self.net_addr2_show.setGeometry(QtCore.QRect(140, 140, 200, 20))
+        self.btn_setting = QtWidgets.QPushButton(self.maintab3)
+        self.btn_setting.setGeometry(QtCore.QRect(210, 190, 60, 21))
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
@@ -240,7 +262,13 @@ class Ui_MainWindow(object):
         self.name_label2.setText(_translate("MainWindow", "姓名"))
         self.mobile_label2.setText(_translate("MainWindow", "手机号码"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab2), _translate("MainWindow", "发卡模式"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.maintab3), _translate("MainWindow", "设置"))
         self.taglabel.setText(_translate("MainWindow","所属部门"))
+        self.set_port_name.setText(_translate("MainWindow","串口号："))
+        self.net_addr1.setText(_translate("MainWindow","网址一："))
+        self.net_addr2.setText(_translate("MainWindow","网址二："))
+        self.btn_setting.setText(_translate("MainWindows","确  定"))
+        self.btn_setting.clicked.connect(self.update_setttings)
         self.btn2_loginuser.clicked.connect(self.login_user)
         t2 = threading.Thread(target=self.get_grouptags)
         t2.start()
@@ -254,23 +282,27 @@ class Ui_MainWindow(object):
             addr = subElementObj[0].getAttribute("addr")
         except:
             QMessageBox.critical(self,"错误","配置文件错误")
+            return
         post_data = {
                 'name':self.lineEdit_3.text()
         }
-        r = requests.post(addr+'app01/queryuserinfo/',post_data)
-        return_data = json.loads(r.text)
-        if return_data.get('code') == '0':
-            self.mobile_show.setText(return_data.get('mobile'))
-            self.precard_show.setText(return_data.get('iccard'))
-            ba = QtCore.QByteArray.fromBase64(return_data.get('pic').encode('utf-8'))
-            pixmap = QtGui.QPixmap()
-            pixmap.loadFromData(ba)
-            self.pic_show.setPixmap(pixmap)
-            self.pic_show.setScaledContents(True)
-        elif return_data.get('code') == '5':
-            QMessageBox.critical(self, "错误", "没有查询到此用户！")
-        elif return_data.get('code') == '4':
-            QMessageBox.critical(self, "错误", "查询用户失败，请联系15195388207处理！")
+        try:
+            r = requests.post(addr+'app01/queryuserinfo/',post_data)
+            return_data = json.loads(r.text)
+            if return_data.get('code') == '0':
+                self.mobile_show.setText(return_data.get('mobile'))
+                self.precard_show.setText(return_data.get('iccard'))
+                ba = QtCore.QByteArray.fromBase64(return_data.get('pic').encode('utf-8'))
+                pixmap = QtGui.QPixmap()
+                pixmap.loadFromData(ba)
+                self.pic_show.setPixmap(pixmap)
+                self.pic_show.setScaledContents(True)
+            elif return_data.get('code') == '5':
+                QMessageBox.critical(self, "错误", "没有查询到此用户！")
+            elif return_data.get('code') == '4':
+                QMessageBox.critical(self, "错误", "查询用户失败，请联系15195388207处理！")
+        except:
+            QMessageBox.critical(self, "错误", "网络错误！")
     def read_card(self):
         self.k = 0
         self.nowcard_show.setText("请放置IC卡")
@@ -318,6 +350,7 @@ class Ui_MainWindow(object):
             addr = subElementObj[0].getAttribute("addr")
         except:
             QMessageBox.critical(self,"错误","配置文件错误")
+            return
         r = requests.post(addr + 'app01/dealcard/', post_data)
         return_data = json.loads(r.text)
         if return_data.get('code') == '0':
@@ -347,6 +380,7 @@ class Ui_MainWindow(object):
             port_rate = subElementObj[0].getAttribute("bitrate")
         except:
             QMessageBox.critical(self, "错误", "配置文件错误")
+            return
         self.x = serial.Serial(port_addr, int(port_rate))
         def read_data():
             while True:
@@ -387,6 +421,7 @@ class Ui_MainWindow(object):
                 addr2 = subElementObj[0].getAttribute("addr2")
             except:
                 QMessageBox.critical(self,"错误","配置文件错误")
+                return
             post_data = {
                 "time":time.strftime("%Y-%m-%d %H:%M:%S"),
                 "mobile":self.lineEdit_2.text()
@@ -418,9 +453,11 @@ class Ui_MainWindow(object):
                         'nowcard':card_num,
                         'pic_num':s
                     }
-
                     r2 = requests.post(addr+"app01/adduser/",post_data)
+
+                    print(r2.text)
                     return_data = json.loads(r2.text)
+
                     if return_data.get('code') == '0':
                         QMessageBox.information(self, "成功", "数据已提交，业务客户端重启后生效！")
                         return
@@ -435,12 +472,19 @@ class Ui_MainWindow(object):
                 return
     def get_grouptags(self):
         self.statusbar.showMessage("正在获取分组信息。。。。。。")
+        port_list = list(serial.tools.list_ports.comports())
+        for item in port_list:
+            self.set_port_show.addItem(item.__str__())
+            print(item.device)
         try:
             xmlfilepath = os.path.abspath("config.xml")
             domobj = xmldom.parse(xmlfilepath)
             elementobj = domobj.documentElement
             subElementObj = elementobj.getElementsByTagName("server")
             server_addr = subElementObj[0].getAttribute("addr2")
+            local_addr = subElementObj[0].getAttribute("addr")
+            self.net_addr2_show.setText(server_addr)
+            self.net_addr1_show.setText(local_addr)
         except:
             QMessageBox.critical(self,"错误","配置文件错误")
             return
@@ -460,6 +504,7 @@ class Ui_MainWindow(object):
         }
         try:
             r = requests.post(server_addr+"api/tags/group",post_data_send)
+            print(r.text)
             r_json = json.loads(r.text)
             if r_json.get('code') == 0:
                 r_json_data = r_json.get('data')
@@ -471,7 +516,7 @@ class Ui_MainWindow(object):
                 dict.reverse()
                 self.tagcombox.addItems(dict)
                 self.statusbar.showMessage("分组信息获取成功")
-        except:
+        except Exception:
             QMessageBox.critical(self, "错误", "无法获取用户分组,请检查网络后重启程序！")
             return
     def login_user(self):
@@ -519,3 +564,31 @@ class Ui_MainWindow(object):
             QMessageBox.information(self, "成功", "用户"+name_label+"注册成功！")
             self.lineEdit.setReadOnly(True)
             self.lineEdit_2.setReadOnly(True)
+    def update_setttings(self):
+        try:
+            tree = et.parse('config.xml')
+            root = tree.getroot()
+            for server in root.iter('server'):
+                server.set('addr',self.net_addr1_show.text())
+                server.set('addr2',self.net_addr2_show.text())
+            com_port = self.set_port_show.currentText().split('-')[0]
+            for ports in root.iter('com'):
+                ports.set('name',com_port.strip())
+            tree.write('config.xml')
+            QMessageBox.information(self, "成功", "修改配置文件成功！")
+        except:
+            QMessageBox.critical(self,"错误","配置文件错误")
+            return
+class main_frame(QMainWindow,Ui_MainWindow):
+    def __init__(self):
+        super(main_frame,self).__init__()
+        self.setupUi(self)
+class login_frame(QMainWindow,Ui_Dialog):
+    def __init__(self):
+        super(login_frame,self).__init__()
+        self.setupUi(self)
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+    widget =main_frame()
+    widget.show()
+    sys.exit(app.exec())
